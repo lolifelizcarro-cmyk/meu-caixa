@@ -16,7 +16,7 @@
   --line: #DAE2E5;
   --track: #E3EBEC;
   --accent: #0B6E6E;
-  --accent-ink: #FFFFFF;
+  --accent-ink: #FFFFFF; --accent-soft: #DCEFEC; --sub: #3B66C4;
   --income: #1E7A4C;
   --expense: #C2413A;
   --warn: #A9690F;
@@ -26,13 +26,13 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0D1518; --surface: #142126; --ink: #E5EEF0; --muted: #94A6AD; --line: #24363C; --track: #1F3138;
-    --accent: #4FC1B8; --accent-ink: #052321; --income: #5CCB8F; --expense: #F2887F; --warn: #E6B15A;
+    --accent: #4FC1B8; --accent-ink: #052321; --accent-soft: #17393A; --sub: #8DB1F2; --income: #5CCB8F; --expense: #F2887F; --warn: #E6B15A;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0D1518; --surface: #142126; --ink: #E5EEF0; --muted: #94A6AD; --line: #24363C; --track: #1F3138;
-  --accent: #4FC1B8; --accent-ink: #052321; --income: #5CCB8F; --expense: #F2887F; --warn: #E6B15A;
+  --accent: #4FC1B8; --accent-ink: #052321; --accent-soft: #17393A; --sub: #8DB1F2; --income: #5CCB8F; --expense: #F2887F; --warn: #E6B15A;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -42,7 +42,6 @@ body {
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-.wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
 h1, h2, .num { font-family: var(--font-display); }
 h1 { font-size: 26px; line-height: 1.1; margin: 0; letter-spacing: -0.01em; }
 h2 { font-size: 16px; margin: 0; font-weight: 600; }
@@ -52,20 +51,20 @@ button { cursor: pointer; }
 .num { font-variant-numeric: tabular-nums; }
 .muted { color: var(--muted); }
 
-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .brand { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .sync { font-size: 12px; color: var(--muted); }
 .monthnav { display: flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
 .monthnav button { border: 0; background: transparent; width: 36px; height: 36px; border-radius: 8px; font-size: 20px; line-height: 1; }
 .monthnav button:hover { background: var(--track); }
-.monthnav .label { min-width: 150px; text-align: center; font-weight: 600; text-transform: capitalize; font-family: var(--font-display); }
+.monthnav .label::first-letter { text-transform: uppercase; }
+.monthnav .label { min-width: 150px; text-align: center; font-weight: 600;  font-family: var(--font-display); }
 
 .banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; border: 1px dashed var(--line); background: var(--surface); padding: 10px 14px; border-radius: 10px; font-size: 13px; color: var(--muted); }
 .btn-link { border: 0; background: none; color: var(--accent); font-weight: 600; padding: 4px 0; text-decoration: underline; text-underline-offset: 3px; }
 
 .summary { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 12px; }
-.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.tile.main { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 1px 2px rgba(20, 33, 43, 0.05); padding: 16px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.tile.main { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); background-image: radial-gradient(120% 140% at 100% 0%, rgba(255,255,255,0.16), rgba(255,255,255,0) 55%); }
 .tile .k { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.8; }
 .tile .v { font-size: 30px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; overflow-wrap: anywhere; }
 .tile .s { font-size: 12px; opacity: 0.8; }
@@ -79,16 +78,7 @@ header { display: flex; flex-wrap: wrap; align-items: center; justify-content: s
 .bar.over > i { background: var(--expense); }
 .bar.good > i { background: var(--income); }
 
-.cols { display: flex; flex-direction: column; gap: 16px; }
-.col { display: contents; }
-@media (max-width: 879px) {
-  #form { order: 1; } #list { order: 2; } #plans { order: 3; } #subs { order: 4; } #cal { order: 5; } #chart { order: 6; } #budgets { order: 7; }
-}
-@media (min-width: 880px) {
-  .cols { flex-direction: row; align-items: flex-start; }
-  .col { display: flex; flex-direction: column; gap: 16px; flex: 1 1 0; min-width: 0; }
-}
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 1px 2px rgba(20, 33, 43, 0.05); padding: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .cardhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 
 .seg { display: inline-grid; grid-auto-flow: column; background: var(--track); border-radius: 10px; padding: 3px; gap: 3px; }
@@ -157,7 +147,7 @@ button.cell.has { cursor: pointer; background: var(--surface); }
 .dots { display: flex; gap: 3px; flex-wrap: wrap; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); display: inline-block; }
 .dot.paid { background: var(--income); }
-.dot.sub { background: var(--accent); }
+.dot.sub { background: var(--sub); }
 .dot.last { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink); margin: 2px; }
 .ca { font-size: 11px; font-weight: 600; margin-top: auto; }
 .legend b.dot { margin-right: 2px; }
@@ -176,7 +166,10 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
 .small.go { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .small.confirm { color: var(--expense); border-color: var(--expense); font-weight: 600; }
 .bar.late > i { background: var(--expense); }
-.pnew summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 4px 0; }
+.pnew summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 10px 12px; border: 1px dashed var(--accent); border-radius: 10px; text-align: center; list-style: none; background: var(--accent-soft); }
+.pnew summary::-webkit-details-marker { display: none; }
+.pnew summary::before { content: "+ "; }
+.pnew[open] summary::before { content: "− "; }
 .pnew form { margin-top: 10px; }
 .hint { font-size: 12px; color: var(--muted); margin: 0; }
 .chip.ok { color: var(--income); border-color: var(--income); }
@@ -188,10 +181,37 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
 .aiout:empty { display: none; }
 .ainote { font-size: 12px; color: var(--muted); margin: 0; }
 .primary:disabled { opacity: .6; cursor: progress; }
+[hidden] { display: none !important; }
+body { margin: 0; padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.app { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.apptop { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: var(--bg); padding-block: 4px 8px; }
+.topin { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 12px; }
+.main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.view { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.seg.wide { display: grid; grid-template-columns: 1fr 1fr; }
+.seg.wide button { padding: 9px 12px; }
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; background: var(--surface); border-top: 1px solid var(--line);
+  padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
+.tab { border: 0; background: transparent; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 10px; font-size: 11px; font-weight: 500; min-width: 0; }
+.tab span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.tab[aria-current="page"] { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+@media (min-width: 880px) {
+  body { padding-bottom: 40px; }
+  .tabs { position: static; display: flex; gap: 6px; background: transparent; border: 0; padding: 0; flex-wrap: wrap; }
+  .tab { flex-direction: row; gap: 8px; padding: 9px 16px; font-size: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 99px; }
+  .tab[aria-current="page"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .grid2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .grid2.split { grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); }
+}
+.toast:empty { display: none; }
 @media (max-width: 640px) {
   .summary { grid-template-columns: 1fr 1fr; }
   .tile.main { grid-column: 1 / -1; }
   .tile .v { font-size: 26px; }
+  .tile:not(.main) .v { font-size: 21px; }
   .monthnav { width: 100%; justify-content: space-between; }
 }
 @media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
@@ -199,61 +219,52 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
 
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="brand">
-      <h1>Meu Caixa</h1>
-      <span class="sync" id="sync">Carregando…</span>
-    </div>
-    <div class="monthnav" role="group" aria-label="Mês exibido">
-      <button type="button" id="prev" aria-label="Mês anterior">‹</button>
-      <span class="label" id="monthlabel" aria-live="polite"></span>
-      <button type="button" id="next" aria-label="Próximo mês">›</button>
+<div class="app">
+  <header class="apptop">
+    <div class="topin">
+      <div class="brand">
+        <h1>Meu Caixa</h1>
+        <span class="sync" id="sync">Carregando…</span>
+      </div>
+      <div class="monthnav" role="group" aria-label="Mês exibido">
+        <button type="button" id="prev" aria-label="Mês anterior">‹</button>
+        <span class="label" id="monthlabel" aria-live="polite"></span>
+        <button type="button" id="next" aria-label="Próximo mês">›</button>
+      </div>
     </div>
   </header>
+  <nav class="tabs" aria-label="Seções do site"><button type="button" class="tab" data-view="inicio" aria-current="false"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Início</span></button><button type="button" class="tab" data-view="lancamentos" aria-current="false"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg><span>Extrato</span></button><button type="button" class="tab" data-view="compromissos" aria-current="false"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Agenda</span></button><button type="button" class="tab" data-view="metas" aria-current="false"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg><span>Metas</span></button><button type="button" class="tab" data-view="orcamento" aria-current="false"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg><span>Orçamento</span></button></nav>
 
-  <div class="banner" id="banner" hidden>
+  <main class="main">
+
+    <section class="view" id="v-inicio">
+    <div class="banner" id="banner" hidden>
     <span>Os lançamentos com a etiqueta “exemplo” são só para você ver como funciona.</span>
     <button type="button" class="btn-link" id="clearEx">Apagar exemplos</button>
   </div>
-
-  <section class="summary" aria-label="Resumo do mês">
+      <section class="summary" aria-label="Resumo do mês">
     <div class="tile main"><span class="k">Saldo do mês</span><span class="v num" id="sBal">R$ 0,00</span><span class="s" id="sTotal"></span></div>
     <div class="tile inc"><span class="k">Receitas</span><span class="v num" id="sInc">R$ 0,00</span><span class="s" id="sIncN"></span></div>
     <div class="tile exp"><span class="k">Despesas</span><span class="v num" id="sExp">R$ 0,00</span><span class="s" id="sExpN"></span></div>
   </section>
+      <div class="grid2">
+        <section class="card" id="chart" aria-labelledby="hChart">
+        <div class="cardhead">
+          <h2 id="hChart">Últimos 6 meses</h2>
+          <div class="legend"><span><i style="background:var(--income)"></i>Receitas</span><span><i style="background:var(--expense)"></i>Despesas</span></div>
+        </div>
+        <div class="svgwrap" id="chartBox"></div>
+      </section>
+        <section class="card" id="upcoming" aria-labelledby="hUp">
+          <div class="cardhead"><h2 id="hUp">Próximos vencimentos</h2></div>
+          <ul class="tx" id="upList"></ul>
+        </section>
+      </div>
+    </section>
 
-  <section class="card" id="goals" aria-labelledby="hGoals">
-    <div class="cardhead"><h2 id="hGoals">Metas</h2></div>
-    <div class="pfree" id="gSum"></div>
-    <ul class="plist" id="goalList"></ul>
-    <details class="pnew" id="gnew">
-      <summary>Nova meta</summary>
-      <form id="gf" novalidate>
-        <div class="field full"><label for="gname">O que você quer conquistar?</label><input id="gname" type="text" maxlength="60" placeholder="Ex.: Viagem, moto, reserva de emergência" autocomplete="off"></div>
-        <div class="field"><label for="gtarget">Valor da meta (R$)</label><input id="gtarget" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off"></div>
-        <div class="field"><label for="gsaved">Já guardado (R$)</label><input id="gsaved" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off"></div>
-        <div class="field full"><label for="gdeadline">Prazo (opcional)</label><input id="gdeadline" type="month"></div>
-        <p class="hint full" id="gHint">Sem prazo, eu sugiro um valor mensal com base na sua sobra. Com prazo, eu calculo quanto você precisa guardar por mês.</p>
-        <p class="err full" id="gerr" role="alert"></p>
-        <button class="primary full" type="submit">Adicionar meta</button>
-      </form>
-      <div class="toast" id="gtoast" aria-live="polite"></div>
-    </details>
-  </section>
-
-  <section class="card" id="ai" aria-labelledby="hAi">
-    <div class="aihead">
-      <h2 id="hAi">Sugestões para o seu dinheiro</h2>
-      <button type="button" class="primary" id="aiBtn" style="padding:9px 16px">Gerar sugestões</button>
-    </div>
-    <p class="ainote" id="aiNote">Analisa os lançamentos do mês exibido e dos 2 meses anteriores. Os dados só são enviados quando você clica no botão.</p>
-    <div class="aiout" id="aiOut" aria-live="polite"></div>
-  </section>
-
-  <div class="cols">
-    <div class="col">
-      <section class="card" id="form" aria-labelledby="hForm">
+    <section class="view" id="v-lancamentos" hidden>
+      <div class="grid2 split">
+        <section class="card" id="form" aria-labelledby="hForm">
         <div class="cardhead">
           <h2 id="hForm">Novo lançamento</h2>
           <div class="seg" role="group" aria-label="Tipo">
@@ -271,30 +282,34 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
         </form>
         <div class="toast" id="toast" aria-live="polite"></div>
       </section>
-
-      <section class="card" id="chart" aria-labelledby="hChart">
+        <section class="card" id="list" aria-labelledby="hList">
         <div class="cardhead">
-          <h2 id="hChart">Últimos 6 meses</h2>
-          <div class="legend"><span><i style="background:var(--income)"></i>Receitas</span><span><i style="background:var(--expense)"></i>Despesas</span></div>
+          <h2 id="hList">Lançamentos</h2>
+          <div class="seg small" role="group" aria-label="Filtrar">
+            <button type="button" data-f="all" aria-pressed="true">Todos</button>
+            <button type="button" data-f="inc" aria-pressed="false">Receitas</button>
+            <button type="button" data-f="exp" aria-pressed="false">Despesas</button>
+          </div>
         </div>
-        <div class="svgwrap" id="chartBox"></div>
+        <ul class="tx" id="txList"></ul>
       </section>
+      </div>
+    </section>
 
-      <section class="card" id="budgets" aria-labelledby="hBud">
-        <div class="cardhead"><h2 id="hBud">Gastos por categoria</h2><span class="muted" style="font-size:12px">Defina um limite mensal</span></div>
-        <div class="budgets-list" id="budList"></div>
-      </section>
-    </div>
-
-    <div class="col">
-      <section class="card" id="cal" aria-labelledby="hCal">
+    <section class="view" id="v-compromissos" hidden>
+      <div class="grid2">
+        <section class="card" id="cal" aria-labelledby="hCal">
         <div class="cardhead"><h2 id="hCal">Calendário de vencimentos</h2><span class="muted" id="calSum" style="font-size:12px"></span></div>
         <div class="calgrid" id="calGrid"></div>
         <div class="legend"><span><b class="dot"></b>A pagar</span><span><b class="dot paid"></b>Paga</span><span><b class="dot sub"></b>Assinatura</span><span><b class="dot last"></b>Última parcela</span></div>
         <div class="caldetail" id="calDetail" aria-live="polite"></div>
       </section>
-
-      <section class="card" id="plans" aria-labelledby="hPlans">
+        <div class="stack">
+          <div class="seg wide" role="group" aria-label="Tipo de compromisso">
+            <button type="button" id="cTabP" aria-pressed="true">Parcelas</button>
+            <button type="button" id="cTabS" aria-pressed="false">Assinaturas</button>
+          </div>
+          <section class="card" id="plans" aria-labelledby="hPlans">
         <div class="cardhead"><h2 id="hPlans">Parcelas</h2></div>
         <div class="pfree" id="pFree"></div>
         <ul class="plist" id="planList"></ul>
@@ -314,8 +329,7 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
           <div class="toast" id="ptoast" aria-live="polite"></div>
         </details>
       </section>
-
-      <section class="card" id="subs" aria-labelledby="hSubs">
+          <section class="card" id="subs" aria-labelledby="hSubs">
         <div class="cardhead"><h2 id="hSubs">Assinaturas</h2></div>
         <div class="pfree" id="sSum"></div>
         <ul class="plist" id="subList"></ul>
@@ -333,20 +347,50 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
           <div class="toast" id="stoast" aria-live="polite"></div>
         </details>
       </section>
-
-      <section class="card" id="list" aria-labelledby="hList">
-        <div class="cardhead">
-          <h2 id="hList">Lançamentos</h2>
-          <div class="seg small" role="group" aria-label="Filtrar">
-            <button type="button" data-f="all" aria-pressed="true">Todos</button>
-            <button type="button" data-f="inc" aria-pressed="false">Receitas</button>
-            <button type="button" data-f="exp" aria-pressed="false">Despesas</button>
-          </div>
         </div>
-        <ul class="tx" id="txList"></ul>
-      </section>
+      </div>
+    </section>
+
+    <section class="view" id="v-metas" hidden>
+      <div class="grid2">
+        <section class="card" id="goals" aria-labelledby="hGoals">
+    <div class="cardhead"><h2 id="hGoals">Metas</h2></div>
+    <div class="pfree" id="gSum"></div>
+    <ul class="plist" id="goalList"></ul>
+    <details class="pnew" id="gnew">
+      <summary>Nova meta</summary>
+      <form id="gf" novalidate>
+        <div class="field full"><label for="gname">O que você quer conquistar?</label><input id="gname" type="text" maxlength="60" placeholder="Ex.: Viagem, moto, reserva de emergência" autocomplete="off"></div>
+        <div class="field"><label for="gtarget">Valor da meta (R$)</label><input id="gtarget" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off"></div>
+        <div class="field"><label for="gsaved">Já guardado (R$)</label><input id="gsaved" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off"></div>
+        <div class="field full"><label for="gdeadline">Prazo (opcional)</label><input id="gdeadline" type="month"></div>
+        <p class="hint full" id="gHint">Sem prazo, eu sugiro um valor mensal com base na sua sobra. Com prazo, eu calculo quanto você precisa guardar por mês.</p>
+        <p class="err full" id="gerr" role="alert"></p>
+        <button class="primary full" type="submit">Adicionar meta</button>
+      </form>
+      <div class="toast" id="gtoast" aria-live="polite"></div>
+    </details>
+  </section>
+        <section class="card" id="ai" aria-labelledby="hAi">
+    <div class="aihead">
+      <h2 id="hAi">Sugestões para o seu dinheiro</h2>
+      <button type="button" class="primary" id="aiBtn" style="padding:9px 16px">Gerar sugestões</button>
     </div>
-  </div>
+    <p class="ainote" id="aiNote">Analisa os lançamentos do mês exibido e dos 2 meses anteriores. Os dados só são enviados quando você clica no botão.</p>
+    <div class="aiout" id="aiOut" aria-live="polite"></div>
+  </section>
+      </div>
+    </section>
+
+    <section class="view" id="v-orcamento" hidden>
+      <div class="grid2">
+        <section class="card" id="budgets" aria-labelledby="hBud">
+        <div class="cardhead"><h2 id="hBud">Gastos por categoria</h2><span class="muted" style="font-size:12px">Defina um limite mensal</span></div>
+        <div class="budgets-list" id="budList"></div>
+      </section>
+      </div>
+    </section>
+  </main>
 </div>
 
 <script>
@@ -678,7 +722,20 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     }).join("");
   }
 
-  function render() { renderSummary(); renderList(); renderChart(); renderBudgets(); renderCal(); renderPlans(); renderSubs(); renderGoals(); }
+  function renderUpcoming() {
+    var t = todayStr(), ym = t.slice(0, 7), nx = shiftMonth(ym, 1);
+    var items = planItems(ym).concat(subItems(ym), planItems(nx), subItems(nx)).filter(function (it) { return it.date >= t && !it.paid; });
+    items.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    items = items.slice(0, 6);
+    if (!items.length) { $("upList").innerHTML = '<li class="empty">Nada vence nos próximos dias.</li>'; return; }
+    $("upList").innerHTML = items.map(function (it) {
+      var diff = Math.round((new Date(it.date) - new Date(t)) / 86400000);
+      var when = diff === 0 ? "hoje" : diff === 1 ? "amanhã" : "em " + diff + " dias";
+      return '<li class="row"><span class="d num">' + it.date.slice(8, 10) + "/" + it.date.slice(5, 7) + '</span><div><span class="desc">' + esc(it.desc) + '</span><div class="meta"><span class="chip">' +
+        (it.sub ? "assinatura" : "parcela " + (it.idx + 1) + "/" + it.n) + '</span><span class="chip' + (diff <= 1 ? " warn" : "") + '">' + when + '</span></div></div><span class="amt num exp">' + money(it.amount) + "</span></li>";
+    }).join("");
+  }
+  function render() { renderUpcoming(); renderSummary(); renderList(); renderChart(); renderBudgets(); renderCal(); renderPlans(); renderSubs(); renderGoals(); }
 
   /* ---------- formulário ---------- */
   function fillCats() {
@@ -1091,6 +1148,33 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     }).catch(function () { setSync("local"); });
   }
 
+  /* ---------- navegação ---------- */
+  var VIEWS = ["inicio", "lancamentos", "compromissos", "metas", "orcamento"];
+  function showView() {
+    var h = "";
+    try { h = (location.hash || "").replace("#", ""); } catch (e) {}
+    if (VIEWS.indexOf(h) < 0) h = "inicio";
+    VIEWS.forEach(function (v) {
+      $("v-" + v).hidden = v !== h;
+      document.querySelector('[data-view="' + v + '"]').setAttribute("aria-current", v === h ? "page" : "false");
+    });
+  }
+  document.querySelectorAll("[data-view]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var v = b.dataset.view;
+      try { location.hash = v; } catch (e) {}
+      showView();
+      try { window.scrollTo(0, 0); } catch (e) {}
+    });
+  });
+  window.addEventListener("hashchange", showView);
+  function setComp(t) {
+    $("plans").hidden = t !== "p"; $("subs").hidden = t !== "s";
+    $("cTabP").setAttribute("aria-pressed", t === "p"); $("cTabS").setAttribute("aria-pressed", t === "s");
+  }
+  $("cTabP").addEventListener("click", function () { setComp("p"); });
+  $("cTabS").addEventListener("click", function () { setComp("s"); });
+
   /* ---------- início ---------- */
   $("date").value = todayStr();
   $("pdate").value = todayStr();
@@ -1100,6 +1184,8 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
   $("pcat").innerHTML = CATS_EXP.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("");
   setType("exp");
   setSync("local");
+  setComp("p");
+  showView();
   render();
   connect();
 })();
