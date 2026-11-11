@@ -73,9 +73,6 @@ header { display: flex; flex-wrap: wrap; align-items: center; justify-content: s
 .tile.exp .v { color: var(--expense); }
 .tile:not(.main) .k, .tile:not(.main) .s { color: var(--muted); opacity: 1; }
 
-.goal { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
-.goal .gtxt { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.goal label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .bar { height: 8px; border-radius: 99px; background: var(--track); overflow: hidden; }
 .bar > i { display: block; height: 100%; border-radius: 99px; background: var(--accent); transition: width .3s ease; }
 .bar.warn > i { background: var(--warn); }
@@ -181,6 +178,10 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
 .pnew summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 4px 0; }
 .pnew form { margin-top: 10px; }
 .hint { font-size: 12px; color: var(--muted); margin: 0; }
+.chip.ok { color: var(--income); border-color: var(--income); }
+.chip.warn { color: var(--warn); border-color: var(--warn); }
+.chip.bad { color: var(--expense); border-color: var(--expense); }
+.gamt { max-width: 120px; padding: 5px 10px; font-size: 13px; }
 .aihead { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .aiout { white-space: pre-wrap; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 .aiout:empty { display: none; }
@@ -221,14 +222,23 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     <div class="tile exp"><span class="k">Despesas</span><span class="v num" id="sExp">R$ 0,00</span><span class="s" id="sExpN"></span></div>
   </section>
 
-  <section class="goal" aria-label="Meta de economia">
-    <div class="gtxt">
-      <label for="goal">Meta para guardar por mês (R$)
-        <input id="goal" type="text" inputmode="decimal" placeholder="Ex.: 800,00" style="max-width:140px;padding:6px 10px">
-      </label>
-      <div class="bar" id="goalBar"><i style="width:0%"></i></div>
-    </div>
-    <span class="muted" id="goalTxt" style="font-size:13px"></span>
+  <section class="card" id="goals" aria-labelledby="hGoals">
+    <div class="cardhead"><h2 id="hGoals">Metas</h2></div>
+    <div class="pfree" id="gSum"></div>
+    <ul class="plist" id="goalList"></ul>
+    <details class="pnew" id="gnew">
+      <summary>Nova meta</summary>
+      <form id="gf" novalidate>
+        <div class="field full"><label for="gname">O que você quer conquistar?</label><input id="gname" type="text" maxlength="60" placeholder="Ex.: Viagem, moto, reserva de emergência" autocomplete="off"></div>
+        <div class="field"><label for="gtarget">Valor da meta (R$)</label><input id="gtarget" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off"></div>
+        <div class="field"><label for="gsaved">Já guardado (R$)</label><input id="gsaved" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off"></div>
+        <div class="field full"><label for="gdeadline">Prazo (opcional)</label><input id="gdeadline" type="month"></div>
+        <p class="hint full" id="gHint">Sem prazo, eu sugiro um valor mensal com base na sua sobra. Com prazo, eu calculo quanto você precisa guardar por mês.</p>
+        <p class="err full" id="gerr" role="alert"></p>
+        <button class="primary full" type="submit">Adicionar meta</button>
+      </form>
+      <div class="toast" id="gtoast" aria-live="polite"></div>
+    </details>
   </section>
 
   <section class="card" id="ai" aria-labelledby="hAi">
@@ -391,7 +401,11 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
       return p;
     }
     var plans = [mkPlan("Celular", "Outros", 189.9, 10, 2, 10), mkPlan("Sofá", "Moradia", 245, 12, 1, 15)];
-    return { tx: tx, plans: plans, budgets: { "Alimentação": 80000, "Lazer": 30000 }, goal: 80000, updatedAt: 0 };
+    var goals = [
+      { id: uid(), name: "Viagem de férias", target: 600000, saved: 120000, deadline: shiftMonth(ymOf(now), 12), example: true },
+      { id: uid(), name: "Reserva de emergência", target: 1500000, saved: 200000, deadline: "", example: true }
+    ];
+    return { tx: tx, plans: plans, budgets: { "Alimentação": 80000, "Lazer": 30000 }, goals: goals, updatedAt: 0 };
   }
   function normalize(s) {
     s = s && typeof s === "object" ? s : {};
@@ -401,8 +415,14 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
       return { id: String(p.id), desc: String(p.desc || ""), cat: String(p.cat || "Outros"), amt: Math.round(+p.amt), n: Math.round(+p.n),
         start: p.start, paid: Math.max(0, Math.min(Math.round(+p.n), Math.round(+p.paid) || 0)), example: !!p.example };
     });
+    var goals = (Array.isArray(s.goals) ? s.goals : []).filter(function (g) {
+      return g && g.id && +g.target > 0;
+    }).map(function (g) {
+      return { id: String(g.id), name: String(g.name || "Minha meta"), target: Math.round(+g.target), saved: Math.max(0, Math.round(+g.saved) || 0),
+        deadline: /^\d{4}-\d{2}$/.test(g.deadline || "") ? g.deadline : "", example: !!g.example };
+    });
     return { tx: Array.isArray(s.tx) ? s.tx : [], plans: plans, budgets: s.budgets && typeof s.budgets === "object" ? s.budgets : {},
-      goal: +s.goal || 0, updatedAt: +s.updatedAt || 0 };
+      goals: goals, updatedAt: +s.updatedAt || 0 };
   }
   function loadLocal() {
     try { var raw = localStorage.getItem(LS); if (raw) return normalize(JSON.parse(raw)); } catch (e) {}
@@ -478,18 +498,7 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     $("sIncN").textContent = ni + (ni === 1 ? " lançamento" : " lançamentos");
     $("sExpN").textContent = ne + (ne === 1 ? " lançamento" : " lançamentos");
 
-    var goal = state.goal, bar = $("goalBar"), fill = bar.firstElementChild;
-    if (document.activeElement !== $("goal")) $("goal").value = goal ? (goal / 100).toFixed(2).replace(".", ",") : "";
-    if (goal > 0) {
-      var pct = Math.max(0, Math.min(100, Math.round(bal / goal * 100)));
-      fill.style.width = pct + "%";
-      bar.className = "bar" + (bal >= goal ? " good" : "");
-      $("goalTxt").textContent = bal >= goal ? "Meta batida: " + money(bal) + " guardados." : "Faltam " + money(goal - Math.max(bal, 0)) + " para a meta.";
-    } else {
-      fill.style.width = "0%"; bar.className = "bar";
-      $("goalTxt").textContent = "Informe um valor para acompanhar quanto sobrou no mês.";
-    }
-    $("banner").hidden = !(state.tx.some(function (t) { return t.example; }) || state.plans.some(function (p) { return p.example; }));
+    $("banner").hidden = !(state.tx.some(function (t) { return t.example; }) || state.plans.some(function (p) { return p.example; }) || state.goals.some(function (g) { return g.example; }));
   }
 
   function renderList() {
@@ -627,7 +636,7 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     }).join("");
   }
 
-  function render() { renderSummary(); renderList(); renderChart(); renderBudgets(); renderCal(); renderPlans(); }
+  function render() { renderSummary(); renderList(); renderChart(); renderBudgets(); renderCal(); renderPlans(); renderGoals(); }
 
   /* ---------- formulário ---------- */
   function fillCats() {
@@ -665,10 +674,6 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     $("desc").focus();
   });
 
-  $("goal").addEventListener("change", function () {
-    state.goal = parseMoney($("goal").value);
-    touch();
-  });
   $("budList").addEventListener("change", function (e) {
     var el = e.target; if (!el.dataset || !el.dataset.cat) return;
     var v = parseMoney(el.value);
@@ -678,6 +683,7 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
   $("clearEx").addEventListener("click", function () {
     state.tx = state.tx.filter(function (t) { return !t.example; });
     state.plans = state.plans.filter(function (p) { return !p.example; });
+    state.goals = state.goals.filter(function (g) { return !g.example; });
     touch();
     toast("Exemplos apagados.");
   });
@@ -753,6 +759,128 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     var d = +b.dataset.day; selDay = selDay === d ? null : d; renderCal();
   });
 
+  /* ---------- metas ---------- */
+  var SHARE = 0.7, pendingGoalDel = null, goalDelTimer = null, gtoastTimer = null;
+  function monthsUntil(ym) {
+    var t = todayStr(), a = ym.split("-"), diff = (+a[0] - +t.slice(0, 4)) * 12 + (+a[1] - +t.slice(5, 7));
+    return diff < 0 ? null : Math.max(1, diff);
+  }
+  function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+  function avgFree() {
+    var t = todayStr().slice(0, 7), ms = [t, shiftMonth(t, -1), shiftMonth(t, -2)], sum = 0, n = 0;
+    ms.forEach(function (m) { if (monthItems(m).length) { var x = totals(m); sum += x.inc - x.exp; n++; } });
+    return { avg: n ? Math.round(sum / n) : 0, n: n };
+  }
+  function goalPlan() {
+    var f = avgFree(), open = state.goals.filter(function (g) { return g.saved < g.target; }), res = {}, req = 0;
+    open.forEach(function (g) {
+      if (!g.deadline) return;
+      var m = monthsUntil(g.deadline);
+      if (m === null) { res[g.id] = { late: true }; return; }
+      var need = Math.ceil((g.target - g.saved) / m);
+      res[g.id] = { months: m, monthly: need }; req += need;
+    });
+    var loose = open.filter(function (g) { return !g.deadline; });
+    var pool = Math.max(0, Math.round(f.avg * SHARE) - req);
+    loose.forEach(function (g) {
+      var mo = Math.floor(pool / loose.length);
+      res[g.id] = { monthly: mo, months: mo > 0 ? Math.ceil((g.target - g.saved) / mo) : null };
+    });
+    return { free: f.avg, n: f.n, req: req, total: req + (loose.length ? pool : 0), res: res, open: open.length };
+  }
+  function goalsForAi() {
+    var gp = goalPlan();
+    return state.goals.map(function (g) {
+      var r = gp.res[g.id] || {};
+      return { nome: g.name, valor: r2(g.target), ja_guardado: r2(g.saved), prazo: g.deadline || null,
+        guardar_por_mes_sugerido: r.monthly ? r2(r.monthly) : null, sobra_media_mensal: r2(gp.free) };
+    });
+  }
+  function renderGoals() {
+    var gp = goalPlan(), sum = $("gSum"), t = todayStr();
+    if (!state.goals.length) {
+      sum.textContent = "Dê um nome e um valor para a sua meta. Eu calculo quanto você precisa guardar por mês com base na sua sobra.";
+    } else {
+      var h = 'Sobra média por mês: <strong>' + money(gp.free) + '</strong> <span class="muted">(média de ' + plural(gp.n, "mês", "meses") + " com lançamentos)</span>";
+      if (gp.open > 0) {
+        h += '<br>Total a guardar por mês nas metas: <strong>' + money(gp.total) + "</strong>" + (gp.free > 0 ? ' <span class="muted">(' + Math.round(gp.total / gp.free * 100) + "% da sobra)</span>" : "");
+        if (gp.free <= 0) h += '<br><span class="muted">Hoje não sobra dinheiro no mês. Reduza gastos para conseguir guardar.</span>';
+        else if (gp.req > gp.free) h += '<br><span class="muted">Os prazos pedem mais do que a sua sobra. Aumente algum prazo ou reduza gastos.</span>';
+      }
+      sum.innerHTML = h;
+    }
+    $("goalList").innerHTML = state.goals.map(function (g) {
+      var done = g.saved >= g.target, pct = Math.max(0, Math.min(100, Math.round(g.saved / g.target * 100))), r = gp.res[g.id] || {}, line, chip = "";
+      if (done) line = "Meta atingida!";
+      else if (r.late) line = "O prazo (" + monthName(g.deadline) + ") já passou. Exclua e crie a meta de novo com uma nova data.";
+      else if (g.deadline) {
+        line = "Até " + monthName(g.deadline) + " (" + plural(r.months, "mês", "meses") + "): guarde " + money(r.monthly) + " por mês.";
+        chip = gp.free <= 0 || gp.req > gp.free ? '<span class="chip bad">acima da sua sobra</span>' : gp.req > gp.free * SHARE ? '<span class="chip warn">apertado</span>' : '<span class="chip ok">cabe na sua sobra</span>';
+      } else if (r.monthly > 0) {
+        line = "Guardando " + money(r.monthly) + " por mês, você chega lá em " + monthName(addMonths(t, r.months).slice(0, 7)) + " (" + plural(r.months, "mês", "meses") + ").";
+      } else line = "Hoje não sobra dinheiro no mês para esta meta. Reduza gastos para começar.";
+      var conf = pendingGoalDel === g.id;
+      return '<li class="plan"><div class="top"><span class="name">' + esc(g.name) + (g.example ? ' <span class="chip ex">exemplo</span>' : "") + " " + chip + '</span><span class="num">' + money(g.saved) + " de " + money(g.target) + "</span></div>" +
+        '<div class="bar' + (done ? " good" : "") + '"><i style="width:' + pct + '%"></i></div>' +
+        '<span class="meta">' + esc(line) + "</span>" +
+        '<div class="acts"><input class="gamt" type="text" inputmode="decimal" placeholder="Valor" aria-label="Valor para ' + esc(g.name) + '">' +
+        '<button type="button" class="small go" data-gadd="' + esc(g.id) + '">Guardei</button>' +
+        '<button type="button" class="small" data-gsub="' + esc(g.id) + '">Retirei</button>' +
+        '<button type="button" class="small' + (conf ? " confirm" : "") + '" data-gdel="' + esc(g.id) + '">' + (conf ? "Confirmar exclusão" : "Excluir") + "</button></div></li>";
+    }).join("");
+  }
+  function gtoast(msg) {
+    $("gtoast").textContent = msg;
+    clearTimeout(gtoastTimer);
+    gtoastTimer = setTimeout(function () { $("gtoast").textContent = ""; }, 3500);
+  }
+  function updateGHint() {
+    var target = parseMoney($("gtarget").value), saved = parseMoney($("gsaved").value), dl = $("gdeadline").value;
+    var def = "Sem prazo, eu sugiro um valor mensal com base na sua sobra. Com prazo, eu calculo quanto você precisa guardar por mês.";
+    if (!target || saved >= target) { $("gHint").textContent = def; return; }
+    var rem = target - saved;
+    if (dl) {
+      var m = monthsUntil(dl);
+      $("gHint").textContent = m === null ? "Escolha um prazo a partir deste mês." : "Para chegar em " + monthName(dl) + ", guarde cerca de " + money(Math.ceil(rem / m)) + " por mês.";
+    } else {
+      var mo = Math.floor(avgFree().avg * SHARE);
+      $("gHint").textContent = mo > 0 ? "Com " + money(mo) + " por mês (70% da sua sobra média), você chega lá em cerca de " + plural(Math.ceil(rem / mo), "mês", "meses") + "." : def;
+    }
+  }
+  ["gtarget", "gsaved", "gdeadline"].forEach(function (id) { $(id).addEventListener("input", updateGHint); });
+  $("gf").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = $("gname").value.trim() || "Minha meta", target = parseMoney($("gtarget").value), saved = parseMoney($("gsaved").value), dl = $("gdeadline").value, err = $("gerr");
+    if (!target) { err.textContent = "Digite o valor da meta, por exemplo 5000,00."; $("gtarget").focus(); return; }
+    if (saved >= target) { err.textContent = "O valor já guardado cobre a meta. Informe um valor menor."; $("gsaved").focus(); return; }
+    if (dl && monthsUntil(dl) === null) { err.textContent = "Escolha um prazo a partir deste mês."; $("gdeadline").focus(); return; }
+    err.textContent = "";
+    state.goals.push({ id: uid(), name: name, target: target, saved: saved, deadline: dl || "" });
+    $("gname").value = ""; $("gtarget").value = ""; $("gsaved").value = ""; $("gdeadline").value = "";
+    updateGHint();
+    touch();
+    gtoast("Meta adicionada.");
+  });
+  $("goalList").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    var id = b.dataset.gadd || b.dataset.gsub || b.dataset.gdel; if (!id) return;
+    var g = state.goals.filter(function (x) { return x.id === id; })[0]; if (!g) return;
+    if (b.dataset.gadd || b.dataset.gsub) {
+      var inp = b.closest(".plan").querySelector(".gamt"), v = parseMoney(inp.value);
+      if (!v) { inp.placeholder = "Digite um valor"; inp.focus(); return; }
+      g.saved = b.dataset.gadd ? g.saved + v : Math.max(0, g.saved - v);
+      touch();
+    } else if (pendingGoalDel === id) {
+      clearTimeout(goalDelTimer); pendingGoalDel = null;
+      state.goals = state.goals.filter(function (x) { return x.id !== id; });
+      touch();
+    } else {
+      pendingGoalDel = id; renderGoals();
+      clearTimeout(goalDelTimer);
+      goalDelTimer = setTimeout(function () { pendingGoalDel = null; renderGoals(); }, 3500);
+    }
+  });
+
   /* ---------- sugestões ---------- */
   var aiBusy = false, samplePromise = null;
   function getSample() {
@@ -779,7 +907,7 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     var plans = state.plans.filter(function (p) { return p.paid < p.n; }).map(function (p) {
       return { descricao: p.desc, valor_parcela: r2(p.amt), parcelas_restantes: p.n - p.paid, ultima_parcela: planDue(p, p.n - 1) };
     });
-    var d = { mes_exibido: viewYm, ultimos_meses: hist, categorias: cats, parcelas_em_aberto: plans, meta_mensal_para_guardar: state.goal ? r2(state.goal) : null };
+    var d = { mes_exibido: viewYm, ultimos_meses: hist, categorias: cats, parcelas_em_aberto: plans, metas: goalsForAi() };
     if (state.tx.some(function (t) { return t.example; }) || state.plans.some(function (p) { return p.example; })) d.aviso = "Parte dos lançamentos são exemplos de demonstração.";
     return d;
   }
@@ -792,8 +920,12 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     var t = totals(viewYm), tips = [], bal = t.inc - t.exp;
     if (!t.inc && !t.exp) return ["Adicione receitas e despesas deste mês para receber dicas."];
     if (bal < 0) tips.push("Neste mês você gastou " + money(-bal) + " a mais do que ganhou. Comece cortando as categorias variáveis maiores.");
-    else if (state.goal > 0 && bal < state.goal) tips.push("Faltam " + money(state.goal - bal) + " para a sua meta de guardar. Separe esse valor assim que a receita entrar.");
-    else if (state.goal > 0) tips.push("Você bateu a meta de guardar do mês. Mova o valor para um lugar separado, como uma reserva de emergência.");
+    var gp = goalPlan();
+    if (gp.open > 0) {
+      if (gp.free <= 0) tips.push("Hoje não sobra dinheiro no mês para as suas metas. Reduza gastos para começar a guardar.");
+      else if (gp.req > gp.free) tips.push("Os prazos das metas pedem " + money(gp.req) + " por mês, mais do que a sua sobra média de " + money(gp.free) + ". Aumente algum prazo.");
+      else tips.push("Para as suas metas, guarde " + money(gp.total) + " por mês assim que a receita entrar.");
+    }
     var sp = spentByCat(viewYm), top = null;
     Object.keys(sp).forEach(function (k) { if (!top || sp[k] > sp[top]) top = k; });
     if (top && t.exp && sp[top] / t.exp > 0.35) tips.push(top + " pesa " + Math.round(sp[top] / t.exp * 100) + "% das suas despesas do mês (" + money(sp[top]) + "). Vale revisar esse gasto primeiro.");
