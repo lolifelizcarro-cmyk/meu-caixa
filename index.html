@@ -85,7 +85,7 @@ header { display: flex; flex-wrap: wrap; align-items: center; justify-content: s
 .cols { display: flex; flex-direction: column; gap: 16px; }
 .col { display: contents; }
 @media (max-width: 879px) {
-  #form { order: 1; } #list { order: 2; } #chart { order: 3; } #budgets { order: 4; }
+  #form { order: 1; } #list { order: 2; } #plans { order: 3; } #cal { order: 4; } #chart { order: 5; } #budgets { order: 6; }
 }
 @media (min-width: 880px) {
   .cols { flex-direction: row; align-items: flex-start; }
@@ -148,6 +148,39 @@ ul.tx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: 
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .toast { min-height: 1.2em; font-size: 13px; color: var(--income); }
 
+.calgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.wd { font-size: 11px; color: var(--muted); text-align: center; text-transform: uppercase; letter-spacing: 0.05em; padding-bottom: 2px; }
+.cell { min-height: 54px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); padding: 4px 5px; display: flex; flex-direction: column; gap: 3px; text-align: left; min-width: 0; font-size: 12px; }
+.cell.blank { border: 0; background: transparent; }
+.cell.today { border-color: var(--accent); }
+.cell.today .dn { color: var(--accent); font-weight: 700; }
+button.cell.has { cursor: pointer; background: var(--surface); }
+.cell.sel { outline: 2px solid var(--accent); outline-offset: 0; }
+.dn { font-size: 12px; color: var(--muted); }
+.dots { display: flex; gap: 3px; flex-wrap: wrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); display: inline-block; }
+.dot.paid { background: var(--income); }
+.dot.last { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink); margin: 2px; }
+.ca { font-size: 11px; font-weight: 600; margin-top: auto; }
+.legend b.dot { margin-right: 2px; }
+.caldetail { font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
+.caldetail .it { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); padding-top: 6px; }
+.pfree { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.pfree strong { font-family: var(--font-display); font-size: 15px; }
+ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.plan { display: flex; flex-direction: column; gap: 6px; }
+.plan .top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.plan .name { font-weight: 600; overflow-wrap: anywhere; }
+.plan .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.plan .meta { font-size: 12px; color: var(--muted); }
+.plan .meta.bad { color: var(--expense); }
+.small { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 5px 10px; font-size: 13px; font-weight: 500; }
+.small.go { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.small.confirm { color: var(--expense); border-color: var(--expense); font-weight: 600; }
+.bar.late > i { background: var(--expense); }
+.pnew summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: 4px 0; }
+.pnew form { margin-top: 10px; }
+.hint { font-size: 12px; color: var(--muted); margin: 0; }
 @media (max-width: 640px) {
   .summary { grid-template-columns: 1fr 1fr; }
   .tile.main { grid-column: 1 / -1; }
@@ -229,6 +262,34 @@ ul.tx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: 
     </div>
 
     <div class="col">
+      <section class="card" id="cal" aria-labelledby="hCal">
+        <div class="cardhead"><h2 id="hCal">Calendário de parcelas</h2><span class="muted" id="calSum" style="font-size:12px"></span></div>
+        <div class="calgrid" id="calGrid"></div>
+        <div class="legend"><span><b class="dot"></b>A pagar</span><span><b class="dot paid"></b>Paga</span><span><b class="dot last"></b>Última parcela</span></div>
+        <div class="caldetail" id="calDetail" aria-live="polite"></div>
+      </section>
+
+      <section class="card" id="plans" aria-labelledby="hPlans">
+        <div class="cardhead"><h2 id="hPlans">Parcelas</h2></div>
+        <div class="pfree" id="pFree"></div>
+        <ul class="plist" id="planList"></ul>
+        <details class="pnew" id="pnew">
+          <summary>Nova compra parcelada</summary>
+          <form id="pf" novalidate>
+            <div class="field full"><label for="pdesc">Descrição</label><input id="pdesc" type="text" maxlength="80" placeholder="Ex.: Celular novo" autocomplete="off"></div>
+            <div class="field"><label for="pamt">Valor da parcela (R$)</label><input id="pamt" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off"></div>
+            <div class="field"><label for="pn">Nº de parcelas</label><input id="pn" type="number" min="2" max="120" inputmode="numeric" placeholder="10"></div>
+            <div class="field"><label for="pdate">1º vencimento</label><input id="pdate" type="date"></div>
+            <div class="field"><label for="ppaid">Já pagas</label><input id="ppaid" type="number" min="0" max="120" inputmode="numeric" placeholder="0"></div>
+            <div class="field full"><label for="pcat">Categoria</label><select id="pcat"></select></div>
+            <p class="hint full" id="pHint"></p>
+            <p class="err full" id="perr" role="alert"></p>
+            <button class="primary full" type="submit">Adicionar parcelas</button>
+          </form>
+          <div class="toast" id="ptoast" aria-live="polite"></div>
+        </details>
+      </section>
+
       <section class="card" id="list" aria-labelledby="hList">
         <div class="cardhead">
           <h2 id="hList">Lançamentos</h2>
@@ -276,6 +337,15 @@ ul.tx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: 
     var p = ym.split("-"); return new Date(+p[0], +p[1] - 1, 1).toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
   }
 
+  function daysIn(y, m0) { return new Date(y, m0 + 1, 0).getDate(); }
+  function addMonths(ds, k) {
+    var p = ds.split("-"), dt = new Date(+p[0], +p[1] - 1 + k, 1), yy = dt.getFullYear(), mm = dt.getMonth();
+    return yy + "-" + pad(mm + 1) + "-" + pad(Math.min(+p[2], daysIn(yy, mm)));
+  }
+  function planDue(p, i) { return addMonths(p.start, i); }
+  function fmtDate(ds) { return ds.slice(8, 10) + "/" + ds.slice(5, 7) + "/" + ds.slice(0, 4); }
+  var selDay = null, pendingPlanDel = null, planDelTimer = null, ptoastTimer = null;
+
   /* ---------- estado ---------- */
   function seed() {
     var now = new Date(), tx = [];
@@ -298,11 +368,26 @@ ul.tx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: 
     add(-1, 20, "exp", "Cinema e jantar", "Lazer", 148.5);
     add(-2, 18, "exp", "Consulta médica", "Saúde", 220);
     add(0, 2, "exp", "Curso online", "Educação", 79.9);
-    return { tx: tx, budgets: { "Alimentação": 80000, "Lazer": 30000 }, goal: 80000, updatedAt: 0 };
+    function mkPlan(desc, cat, reais, n, monthsAgo, day) {
+      var d = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
+      var p = { id: uid(), desc: desc, cat: cat, amt: Math.round(reais * 100), n: n,
+        start: d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(day), paid: 0, example: true };
+      var t = todayStr();
+      while (p.paid < n && planDue(p, p.paid) <= t) p.paid++;
+      return p;
+    }
+    var plans = [mkPlan("Celular", "Outros", 189.9, 10, 2, 10), mkPlan("Sofá", "Moradia", 245, 12, 1, 15)];
+    return { tx: tx, plans: plans, budgets: { "Alimentação": 80000, "Lazer": 30000 }, goal: 80000, updatedAt: 0 };
   }
   function normalize(s) {
     s = s && typeof s === "object" ? s : {};
-    return { tx: Array.isArray(s.tx) ? s.tx : [], budgets: s.budgets && typeof s.budgets === "object" ? s.budgets : {},
+    var plans = (Array.isArray(s.plans) ? s.plans : []).filter(function (p) {
+      return p && p.id && typeof p.start === "string" && +p.n >= 1 && +p.amt > 0;
+    }).map(function (p) {
+      return { id: String(p.id), desc: String(p.desc || ""), cat: String(p.cat || "Outros"), amt: Math.round(+p.amt), n: Math.round(+p.n),
+        start: p.start, paid: Math.max(0, Math.min(Math.round(+p.n), Math.round(+p.paid) || 0)), example: !!p.example };
+    });
+    return { tx: Array.isArray(s.tx) ? s.tx : [], plans: plans, budgets: s.budgets && typeof s.budgets === "object" ? s.budgets : {},
       goal: +s.goal || 0, updatedAt: +s.updatedAt || 0 };
   }
   function loadLocal() {
@@ -348,15 +433,27 @@ ul.tx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: 
 
   /* ---------- cálculos ---------- */
   function monthTx(ym) { return state.tx.filter(function (t) { return t.date.slice(0, 7) === ym; }); }
+  function planItems(ym) {
+    var out = [];
+    state.plans.forEach(function (p) {
+      for (var i = 0; i < p.n; i++) {
+        var ds = planDue(p, i);
+        if (ds.slice(0, 7) === ym) out.push({ id: p.id + ":" + i, type: "exp", desc: p.desc, cat: p.cat, amount: p.amt, date: ds,
+          plan: true, planId: p.id, idx: i, n: p.n, paid: i < p.paid, last: i === p.n - 1, example: p.example });
+      }
+    });
+    return out;
+  }
+  function monthItems(ym) { return monthTx(ym).concat(planItems(ym)); }
   function totals(ym) {
     var inc = 0, exp = 0;
-    monthTx(ym).forEach(function (t) { if (t.type === "inc") inc += t.amount; else exp += t.amount; });
+    monthItems(ym).forEach(function (t) { if (t.type === "inc") inc += t.amount; else exp += t.amount; });
     return { inc: inc, exp: exp };
   }
 
   /* ---------- renderização ---------- */
   function renderSummary() {
-    var m = monthTx(viewYm), tt = totals(viewYm), bal = tt.inc - tt.exp;
+    var m = monthItems(viewYm), tt = totals(viewYm), bal = tt.inc - tt.exp;
     $("monthlabel").textContent = monthName(viewYm);
     $("sBal").textContent = money(bal);
     var all = 0; state.tx.forEach(function (t) { all += t.type === "inc" ? t.amount : -t.amount; });
@@ -378,11 +475,11 @@ ul.tx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: 
       fill.style.width = "0%"; bar.className = "bar";
       $("goalTxt").textContent = "Informe um valor para acompanhar quanto sobrou no mês.";
     }
-    $("banner").hidden = !state.tx.some(function (t) { return t.example; });
+    $("banner").hidden = !(state.tx.some(function (t) { return t.example; }) || state.plans.some(function (p) { return p.example; }));
   }
 
   function renderList() {
-    var rows = monthTx(viewYm).filter(function (t) { return filter === "all" || t.type === filter; });
+    var rows = monthItems(viewYm).filter(function (t) { return filter === "all" || t.type === filter; });
     rows.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
     var ul = $("txList");
     if (!rows.length) {
@@ -394,7 +491,8 @@ ul.tx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: 
       var conf = pendingDel === t.id;
       return '<li class="row"><span class="d num">' + dd + '</span><div><span class="desc">' + esc(t.desc) + '</span>' +
         '<div class="meta"><span class="chip">' + esc(t.cat) + '</span>' + (t.example ? '<span class="chip ex">exemplo</span>' : '') +
-        '<button type="button" class="del' + (conf ? " confirm" : "") + '" data-del="' + esc(t.id) + '">' + (conf ? "Confirmar exclusão" : "Excluir") + '</button></div></div>' +
+        (t.plan ? '<span class="chip">parcela ' + (t.idx + 1) + '/' + t.n + '</span>' + (t.paid ? '<span class="chip">paga</span>' : '') + (t.last ? '<span class="chip">última</span>' : '')
+          : '<button type="button" class="del' + (conf ? " confirm" : "") + '" data-del="' + esc(t.id) + '">' + (conf ? "Confirmar exclusão" : "Excluir") + '</button>') + '</div></div>' +
         '<span class="amt num ' + t.type + '">' + (t.type === "inc" ? "+ " : "− ") + money(t.amount) + '</span></li>';
     }).join("");
   }
@@ -432,7 +530,7 @@ ul.tx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: 
 
   function renderBudgets() {
     var spent = {}, total = 0;
-    monthTx(viewYm).forEach(function (t) { if (t.type === "exp") { spent[t.cat] = (spent[t.cat] || 0) + t.amount; total += t.amount; } });
+    monthItems(viewYm).forEach(function (t) { if (t.type === "exp") { spent[t.cat] = (spent[t.cat] || 0) + t.amount; total += t.amount; } });
     var cats = CATS_EXP.slice();
     Object.keys(spent).forEach(function (c) { if (cats.indexOf(c) < 0) cats.push(c); });
     var active = document.activeElement && document.activeElement.id;
@@ -454,7 +552,68 @@ ul.tx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: 
     if (active) { var el = $(active); if (el) { /* preserva foco entre re-renderizações */ } }
   }
 
-  function render() { renderSummary(); renderList(); renderChart(); renderBudgets(); }
+  function renderCal() {
+    var pr = viewYm.split("-"), y = +pr[0], m0 = +pr[1] - 1, first = new Date(y, m0, 1).getDay(), dim = daysIn(y, m0);
+    var items = planItems(viewYm), by = {}, today = todayStr(), h = "", i, d, sum = 0;
+    items.forEach(function (it) { var k = +it.date.slice(8, 10); (by[k] = by[k] || []).push(it); sum += it.amount; });
+    ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].forEach(function (w) { h += '<div class="wd">' + w + "</div>"; });
+    for (i = 0; i < first; i++) h += '<div class="cell blank"></div>';
+    for (d = 1; d <= dim; d++) {
+      var ds = viewYm + "-" + pad(d), list = by[d] || [], cls = "cell" + (ds === today ? " today" : "") + (selDay === d ? " sel" : "");
+      if (list.length) {
+        var dots = list.slice(0, 4).map(function (it) { return '<i class="dot' + (it.paid ? " paid" : "") + (it.last ? " last" : "") + '"></i>'; }).join("");
+        var tot = list.reduce(function (a, it) { return a + it.amount; }, 0);
+        h += '<button type="button" class="' + cls + ' has" data-day="' + d + '" aria-label="Dia ' + d + ': ' + list.length + (list.length === 1 ? " parcela" : " parcelas") + ', ' + money(tot) + '"><span class="dn">' + d + '</span><span class="dots">' + dots + '</span><span class="ca num">' + Math.round(tot / 100).toLocaleString("pt-BR") + "</span></button>";
+      } else h += '<div class="' + cls + '"><span class="dn">' + d + "</span></div>";
+    }
+    $("calGrid").innerHTML = h;
+    $("calSum").textContent = items.length ? items.length + (items.length === 1 ? " vencimento · " : " vencimentos · ") + money(sum) : "";
+    var det = $("calDetail"), sel = selDay && by[selDay];
+    if (sel) {
+      det.innerHTML = '<strong>' + fmtDate(viewYm + "-" + pad(selDay)) + '</strong>' + sel.map(function (it) {
+        return '<div class="it"><span>' + esc(it.desc) + ' <span class="muted">· parcela ' + (it.idx + 1) + '/' + it.n + (it.last ? ", a última" : "") + (it.paid ? ", paga" : "") + '</span></span><span class="num">' + money(it.amount) + "</span></div>";
+      }).join("");
+    } else {
+      det.innerHTML = items.length ? '<span class="muted">Toque num dia com marcação para ver as parcelas.</span>' : '<span class="muted">Nenhuma parcela vence em ' + esc(monthName(viewYm)) + ".</span>";
+    }
+  }
+
+  function renderPlans() {
+    var act = state.plans.filter(function (p) { return p.paid < p.n; }), free = $("pFree"), t = todayStr();
+    if (!state.plans.length) {
+      free.textContent = "Nenhuma compra parcelada ainda. Adicione uma abaixo e veja em que mês você termina de pagar.";
+    } else if (!act.length) {
+      free.innerHTML = "<strong>Tudo quitado.</strong> Nenhuma parcela em aberto.";
+    } else {
+      var last = act.reduce(function (a, p) { var e = planDue(p, p.n - 1); return e > a ? e : a; }, "");
+      var rest = act.reduce(function (a, p) { return a + (p.n - p.paid) * p.amt; }, 0);
+      var cnt = act.reduce(function (a, p) { return a + (p.n - p.paid); }, 0);
+      free.innerHTML = 'Livre das parcelas em <strong>' + esc(monthName(last.slice(0, 7))) + '</strong><br><span class="muted">Faltam ' + cnt + (cnt === 1 ? " parcela" : " parcelas") + ", " + money(rest) + " no total.</span>";
+    }
+    var sorted = state.plans.slice().sort(function (a, b) {
+      var qa = a.paid >= a.n ? 1 : 0, qb = b.paid >= b.n ? 1 : 0;
+      if (qa !== qb) return qa - qb;
+      var ea = planDue(a, a.n - 1), eb = planDue(b, b.n - 1);
+      return ea < eb ? -1 : ea > eb ? 1 : 0;
+    });
+    $("planList").innerHTML = sorted.map(function (p) {
+      var done = p.paid >= p.n, end = planDue(p, p.n - 1), pct = Math.round(p.paid / p.n * 100), meta, late = false;
+      if (done) meta = "Quitada. Última parcela em " + fmtDate(end) + ".";
+      else {
+        var nx = planDue(p, p.paid); late = nx < t;
+        meta = (late ? "Parcela " + (p.paid + 1) + " venceu em " + fmtDate(nx) : "Próxima: parcela " + (p.paid + 1) + " em " + fmtDate(nx)) + ". Termina em " + monthName(end.slice(0, 7)) + ".";
+      }
+      var conf = pendingPlanDel === p.id;
+      return '<li class="plan"><div class="top"><span class="name">' + esc(p.desc) + (p.example ? ' <span class="chip ex">exemplo</span>' : "") + '</span><span class="num">' + p.n + "× " + money(p.amt) + "</span></div>" +
+        '<div class="bar' + (late ? " late" : done ? " good" : "") + '"><i style="width:' + pct + '%"></i></div>' +
+        '<span class="meta' + (late ? " bad" : "") + '">' + p.paid + " de " + p.n + " pagas · " + esc(meta) + "</span>" +
+        '<div class="acts">' + (done ? "" : '<button type="button" class="small go" data-pay="' + esc(p.id) + '">Marcar parcela ' + (p.paid + 1) + " como paga</button>") +
+        (p.paid > 0 ? '<button type="button" class="small" data-undo="' + esc(p.id) + '">Desfazer última</button>' : "") +
+        '<button type="button" class="small' + (conf ? " confirm" : "") + '" data-pdel="' + esc(p.id) + '">' + (conf ? "Confirmar exclusão" : "Excluir") + "</button></div></li>";
+    }).join("");
+  }
+
+  function render() { renderSummary(); renderList(); renderChart(); renderBudgets(); renderCal(); renderPlans(); }
 
   /* ---------- formulário ---------- */
   function fillCats() {
@@ -475,8 +634,8 @@ ul.tx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: 
 
   $("tExp").addEventListener("click", function () { setType("exp"); });
   $("tInc").addEventListener("click", function () { setType("inc"); });
-  $("prev").addEventListener("click", function () { viewYm = shiftMonth(viewYm, -1); pendingDel = null; render(); });
-  $("next").addEventListener("click", function () { viewYm = shiftMonth(viewYm, 1); pendingDel = null; render(); });
+  $("prev").addEventListener("click", function () { viewYm = shiftMonth(viewYm, -1); pendingDel = null; selDay = null; render(); });
+  $("next").addEventListener("click", function () { viewYm = shiftMonth(viewYm, 1); pendingDel = null; selDay = null; render(); });
 
   $("f").addEventListener("submit", function (e) {
     e.preventDefault();
@@ -504,6 +663,7 @@ ul.tx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: 
   });
   $("clearEx").addEventListener("click", function () {
     state.tx = state.tx.filter(function (t) { return !t.example; });
+    state.plans = state.plans.filter(function (p) { return !p.example; });
     touch();
     toast("Exemplos apagados.");
   });
@@ -526,6 +686,57 @@ ul.tx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: 
       clearTimeout(delTimer);
       delTimer = setTimeout(function () { pendingDel = null; renderList(); }, 3500);
     }
+  });
+
+  function ptoast(msg) {
+    $("ptoast").textContent = msg;
+    clearTimeout(ptoastTimer);
+    ptoastTimer = setTimeout(function () { $("ptoast").textContent = ""; }, 3500);
+  }
+  function updateHint() {
+    var amt = parseMoney($("pamt").value), n = parseInt($("pn").value, 10), date = $("pdate").value;
+    if (amt && n >= 2 && n <= 120 && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      $("pHint").textContent = n + " × " + money(amt) + " = " + money(amt * n) + ". Última parcela em " + fmtDate(addMonths(date, n - 1)) + ".";
+    } else $("pHint").textContent = "";
+  }
+  ["pamt", "pn", "pdate"].forEach(function (id) { $(id).addEventListener("input", updateHint); });
+  $("pf").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var amt = parseMoney($("pamt").value), n = parseInt($("pn").value, 10), date = $("pdate").value;
+    var paid = parseInt($("ppaid").value || "0", 10) || 0, cat = $("pcat").value, desc = $("pdesc").value.trim();
+    var err = $("perr");
+    if (!amt) { err.textContent = "Digite o valor de cada parcela, por exemplo 189,90."; $("pamt").focus(); return; }
+    if (!(n >= 2 && n <= 120)) { err.textContent = "Informe o número de parcelas, entre 2 e 120."; $("pn").focus(); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { err.textContent = "Escolha a data do primeiro vencimento."; $("pdate").focus(); return; }
+    if (paid < 0 || paid > n) { err.textContent = "As parcelas já pagas devem ficar entre 0 e " + n + "."; $("ppaid").focus(); return; }
+    err.textContent = "";
+    var plan = { id: uid(), desc: desc || cat, cat: cat, amt: amt, n: n, start: date, paid: paid };
+    state.plans.push(plan);
+    viewYm = planDue(plan, Math.min(paid, n - 1)).slice(0, 7);
+    selDay = null;
+    $("pdesc").value = ""; $("pamt").value = ""; $("pn").value = ""; $("ppaid").value = ""; $("pHint").textContent = "";
+    touch();
+    ptoast("Parcelas adicionadas. Terminam em " + monthName(planDue(plan, n - 1).slice(0, 7)) + ".");
+  });
+  $("planList").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    var id = b.dataset.pay || b.dataset.undo || b.dataset.pdel; if (!id) return;
+    var p = state.plans.filter(function (x) { return x.id === id; })[0]; if (!p) return;
+    if (b.dataset.pay) { p.paid = Math.min(p.n, p.paid + 1); touch(); }
+    else if (b.dataset.undo) { p.paid = Math.max(0, p.paid - 1); touch(); }
+    else if (pendingPlanDel === id) {
+      clearTimeout(planDelTimer); pendingPlanDel = null;
+      state.plans = state.plans.filter(function (x) { return x.id !== id; });
+      touch();
+    } else {
+      pendingPlanDel = id; renderPlans();
+      clearTimeout(planDelTimer);
+      planDelTimer = setTimeout(function () { pendingPlanDel = null; renderPlans(); }, 3500);
+    }
+  });
+  $("calGrid").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-day]"); if (!b) return;
+    var d = +b.dataset.day; selDay = selDay === d ? null : d; renderCal();
   });
 
   /* ---------- conta (db) ---------- */
@@ -558,6 +769,8 @@ ul.tx { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: 
 
   /* ---------- início ---------- */
   $("date").value = todayStr();
+  $("pdate").value = todayStr();
+  $("pcat").innerHTML = CATS_EXP.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("");
   setType("exp");
   setSync("local");
   render();
