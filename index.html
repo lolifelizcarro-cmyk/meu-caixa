@@ -82,7 +82,7 @@ header { display: flex; flex-wrap: wrap; align-items: center; justify-content: s
 .cols { display: flex; flex-direction: column; gap: 16px; }
 .col { display: contents; }
 @media (max-width: 879px) {
-  #form { order: 1; } #list { order: 2; } #plans { order: 3; } #cal { order: 4; } #chart { order: 5; } #budgets { order: 6; }
+  #form { order: 1; } #list { order: 2; } #plans { order: 3; } #subs { order: 4; } #cal { order: 5; } #chart { order: 6; } #budgets { order: 7; }
 }
 @media (min-width: 880px) {
   .cols { flex-direction: row; align-items: flex-start; }
@@ -157,6 +157,7 @@ button.cell.has { cursor: pointer; background: var(--surface); }
 .dots { display: flex; gap: 3px; flex-wrap: wrap; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); display: inline-block; }
 .dot.paid { background: var(--income); }
+.dot.sub { background: var(--accent); }
 .dot.last { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink); margin: 2px; }
 .ca { font-size: 11px; font-weight: 600; margin-top: auto; }
 .legend b.dot { margin-right: 2px; }
@@ -287,9 +288,9 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
 
     <div class="col">
       <section class="card" id="cal" aria-labelledby="hCal">
-        <div class="cardhead"><h2 id="hCal">Calendário de parcelas</h2><span class="muted" id="calSum" style="font-size:12px"></span></div>
+        <div class="cardhead"><h2 id="hCal">Calendário de vencimentos</h2><span class="muted" id="calSum" style="font-size:12px"></span></div>
         <div class="calgrid" id="calGrid"></div>
-        <div class="legend"><span><b class="dot"></b>A pagar</span><span><b class="dot paid"></b>Paga</span><span><b class="dot last"></b>Última parcela</span></div>
+        <div class="legend"><span><b class="dot"></b>A pagar</span><span><b class="dot paid"></b>Paga</span><span><b class="dot sub"></b>Assinatura</span><span><b class="dot last"></b>Última parcela</span></div>
         <div class="caldetail" id="calDetail" aria-live="polite"></div>
       </section>
 
@@ -311,6 +312,25 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
             <button class="primary full" type="submit">Adicionar parcelas</button>
           </form>
           <div class="toast" id="ptoast" aria-live="polite"></div>
+        </details>
+      </section>
+
+      <section class="card" id="subs" aria-labelledby="hSubs">
+        <div class="cardhead"><h2 id="hSubs">Assinaturas</h2></div>
+        <div class="pfree" id="sSum"></div>
+        <ul class="plist" id="subList"></ul>
+        <details class="pnew" id="snew">
+          <summary>Nova assinatura</summary>
+          <form id="sf" novalidate>
+            <div class="field full"><label for="sname">Nome</label><input id="sname" type="text" maxlength="60" placeholder="Ex.: Netflix, Spotify, academia" autocomplete="off"></div>
+            <div class="field"><label for="samt">Valor por mês (R$)</label><input id="samt" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off"></div>
+            <div class="field"><label for="sday">Dia da cobrança</label><input id="sday" type="number" min="1" max="31" inputmode="numeric" placeholder="10"></div>
+            <div class="field"><label for="scat">Categoria</label><select id="scat"></select></div>
+            <div class="field"><label for="sstart">Começou em</label><input id="sstart" type="month"></div>
+            <p class="err full" id="serr" role="alert"></p>
+            <button class="primary full" type="submit">Adicionar assinatura</button>
+          </form>
+          <div class="toast" id="stoast" aria-live="polite"></div>
         </details>
       </section>
 
@@ -401,11 +421,17 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
       return p;
     }
     var plans = [mkPlan("Celular", "Outros", 189.9, 10, 2, 10), mkPlan("Sofá", "Moradia", 245, 12, 1, 15)];
+    var s0 = shiftMonth(ymOf(now), -3);
+    var subs = [
+      { id: uid(), name: "Netflix", amt: 4490, day: 12, cat: "Lazer", start: s0, end: "", example: true },
+      { id: uid(), name: "Spotify", amt: 2190, day: 5, cat: "Lazer", start: s0, end: "", example: true },
+      { id: uid(), name: "Academia", amt: 9990, day: 10, cat: "Saúde", start: s0, end: "", example: true }
+    ];
     var goals = [
       { id: uid(), name: "Viagem de férias", target: 600000, saved: 120000, deadline: shiftMonth(ymOf(now), 12), example: true },
       { id: uid(), name: "Reserva de emergência", target: 1500000, saved: 200000, deadline: "", example: true }
     ];
-    return { tx: tx, plans: plans, budgets: { "Alimentação": 80000, "Lazer": 30000 }, goals: goals, updatedAt: 0 };
+    return { tx: tx, plans: plans, budgets: { "Alimentação": 80000, "Lazer": 30000 }, goals: goals, subs: subs, updatedAt: 0 };
   }
   function normalize(s) {
     s = s && typeof s === "object" ? s : {};
@@ -421,8 +447,14 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
       return { id: String(g.id), name: String(g.name || "Minha meta"), target: Math.round(+g.target), saved: Math.max(0, Math.round(+g.saved) || 0),
         deadline: /^\d{4}-\d{2}$/.test(g.deadline || "") ? g.deadline : "", example: !!g.example };
     });
+    var subs = (Array.isArray(s.subs) ? s.subs : []).filter(function (b) {
+      return b && b.id && +b.amt > 0 && /^\d{4}-\d{2}$/.test(b.start || "");
+    }).map(function (b) {
+      return { id: String(b.id), name: String(b.name || "Assinatura"), amt: Math.round(+b.amt), day: Math.max(1, Math.min(31, Math.round(+b.day) || 1)),
+        cat: String(b.cat || "Contas"), start: b.start, end: /^\d{4}-\d{2}$/.test(b.end || "") ? b.end : "", example: !!b.example };
+    });
     return { tx: Array.isArray(s.tx) ? s.tx : [], plans: plans, budgets: s.budgets && typeof s.budgets === "object" ? s.budgets : {},
-      goals: goals, updatedAt: +s.updatedAt || 0 };
+      goals: goals, subs: subs, updatedAt: +s.updatedAt || 0 };
   }
   function loadLocal() {
     try { var raw = localStorage.getItem(LS); if (raw) return normalize(JSON.parse(raw)); } catch (e) {}
@@ -478,7 +510,17 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     });
     return out;
   }
-  function monthItems(ym) { return monthTx(ym).concat(planItems(ym)); }
+  function subItems(ym) {
+    var out = [];
+    state.subs.forEach(function (b) {
+      if (ym < b.start || (b.end && ym > b.end)) return;
+      var q = ym.split("-");
+      out.push({ id: b.id + ":" + ym, type: "exp", desc: b.name, cat: b.cat, amount: b.amt, date: ym + "-" + pad(Math.min(b.day, daysIn(+q[0], +q[1] - 1))),
+        sub: true, subId: b.id, example: b.example });
+    });
+    return out;
+  }
+  function monthItems(ym) { return monthTx(ym).concat(planItems(ym), subItems(ym)); }
   function totals(ym) {
     var inc = 0, exp = 0;
     monthItems(ym).forEach(function (t) { if (t.type === "inc") inc += t.amount; else exp += t.amount; });
@@ -498,7 +540,7 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     $("sIncN").textContent = ni + (ni === 1 ? " lançamento" : " lançamentos");
     $("sExpN").textContent = ne + (ne === 1 ? " lançamento" : " lançamentos");
 
-    $("banner").hidden = !(state.tx.some(function (t) { return t.example; }) || state.plans.some(function (p) { return p.example; }) || state.goals.some(function (g) { return g.example; }));
+    $("banner").hidden = !(state.tx.some(function (t) { return t.example; }) || state.plans.some(function (p) { return p.example; }) || state.goals.some(function (g) { return g.example; }) || state.subs.some(function (b) { return b.example; }));
   }
 
   function renderList() {
@@ -514,7 +556,7 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
       var conf = pendingDel === t.id;
       return '<li class="row"><span class="d num">' + dd + '</span><div><span class="desc">' + esc(t.desc) + '</span>' +
         '<div class="meta"><span class="chip">' + esc(t.cat) + '</span>' + (t.example ? '<span class="chip ex">exemplo</span>' : '') +
-        (t.plan ? '<span class="chip">parcela ' + (t.idx + 1) + '/' + t.n + '</span>' + (t.paid ? '<span class="chip">paga</span>' : '') + (t.last ? '<span class="chip">última</span>' : '')
+        (t.sub ? '<span class="chip">assinatura</span>' : t.plan ? '<span class="chip">parcela ' + (t.idx + 1) + '/' + t.n + '</span>' + (t.paid ? '<span class="chip">paga</span>' : '') + (t.last ? '<span class="chip">última</span>' : '')
           : '<button type="button" class="del' + (conf ? " confirm" : "") + '" data-del="' + esc(t.id) + '">' + (conf ? "Confirmar exclusão" : "Excluir") + '</button>') + '</div></div>' +
         '<span class="amt num ' + t.type + '">' + (t.type === "inc" ? "+ " : "− ") + money(t.amount) + '</span></li>';
     }).join("");
@@ -577,16 +619,16 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
 
   function renderCal() {
     var pr = viewYm.split("-"), y = +pr[0], m0 = +pr[1] - 1, first = new Date(y, m0, 1).getDay(), dim = daysIn(y, m0);
-    var items = planItems(viewYm), by = {}, today = todayStr(), h = "", i, d, sum = 0;
+    var items = planItems(viewYm).concat(subItems(viewYm)), by = {}, today = todayStr(), h = "", i, d, sum = 0;
     items.forEach(function (it) { var k = +it.date.slice(8, 10); (by[k] = by[k] || []).push(it); sum += it.amount; });
     ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].forEach(function (w) { h += '<div class="wd">' + w + "</div>"; });
     for (i = 0; i < first; i++) h += '<div class="cell blank"></div>';
     for (d = 1; d <= dim; d++) {
       var ds = viewYm + "-" + pad(d), list = by[d] || [], cls = "cell" + (ds === today ? " today" : "") + (selDay === d ? " sel" : "");
       if (list.length) {
-        var dots = list.slice(0, 4).map(function (it) { return '<i class="dot' + (it.paid ? " paid" : "") + (it.last ? " last" : "") + '"></i>'; }).join("");
+        var dots = list.slice(0, 4).map(function (it) { return '<i class="dot' + (it.paid ? " paid" : "") + (it.last ? " last" : "") + (it.sub ? " sub" : "") + '"></i>'; }).join("");
         var tot = list.reduce(function (a, it) { return a + it.amount; }, 0);
-        h += '<button type="button" class="' + cls + ' has" data-day="' + d + '" aria-label="Dia ' + d + ': ' + list.length + (list.length === 1 ? " parcela" : " parcelas") + ', ' + money(tot) + '"><span class="dn">' + d + '</span><span class="dots">' + dots + '</span><span class="ca num">' + Math.round(tot / 100).toLocaleString("pt-BR") + "</span></button>";
+        h += '<button type="button" class="' + cls + ' has" data-day="' + d + '" aria-label="Dia ' + d + ': ' + list.length + (list.length === 1 ? " vencimento" : " vencimentos") + ', ' + money(tot) + '"><span class="dn">' + d + '</span><span class="dots">' + dots + '</span><span class="ca num">' + Math.round(tot / 100).toLocaleString("pt-BR") + "</span></button>";
       } else h += '<div class="' + cls + '"><span class="dn">' + d + "</span></div>";
     }
     $("calGrid").innerHTML = h;
@@ -594,10 +636,10 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     var det = $("calDetail"), sel = selDay && by[selDay];
     if (sel) {
       det.innerHTML = '<strong>' + fmtDate(viewYm + "-" + pad(selDay)) + '</strong>' + sel.map(function (it) {
-        return '<div class="it"><span>' + esc(it.desc) + ' <span class="muted">· parcela ' + (it.idx + 1) + '/' + it.n + (it.last ? ", a última" : "") + (it.paid ? ", paga" : "") + '</span></span><span class="num">' + money(it.amount) + "</span></div>";
+        return '<div class="it"><span>' + esc(it.desc) + ' <span class="muted">· ' + (it.sub ? "assinatura mensal" : "parcela " + (it.idx + 1) + "/" + it.n + (it.last ? ", a última" : "") + (it.paid ? ", paga" : "")) + '</span></span><span class="num">' + money(it.amount) + "</span></div>";
       }).join("");
     } else {
-      det.innerHTML = items.length ? '<span class="muted">Toque num dia com marcação para ver as parcelas.</span>' : '<span class="muted">Nenhuma parcela vence em ' + esc(monthName(viewYm)) + ".</span>";
+      det.innerHTML = items.length ? '<span class="muted">Toque num dia com marcação para ver o que vence.</span>' : '<span class="muted">Nada vence em ' + esc(monthName(viewYm)) + ".</span>";
     }
   }
 
@@ -636,7 +678,7 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     }).join("");
   }
 
-  function render() { renderSummary(); renderList(); renderChart(); renderBudgets(); renderCal(); renderPlans(); renderGoals(); }
+  function render() { renderSummary(); renderList(); renderChart(); renderBudgets(); renderCal(); renderPlans(); renderSubs(); renderGoals(); }
 
   /* ---------- formulário ---------- */
   function fillCats() {
@@ -684,6 +726,7 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     state.tx = state.tx.filter(function (t) { return !t.example; });
     state.plans = state.plans.filter(function (p) { return !p.example; });
     state.goals = state.goals.filter(function (g) { return !g.example; });
+    state.subs = state.subs.filter(function (b) { return !b.example; });
     touch();
     toast("Exemplos apagados.");
   });
@@ -757,6 +800,66 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
   $("calGrid").addEventListener("click", function (e) {
     var b = e.target.closest("[data-day]"); if (!b) return;
     var d = +b.dataset.day; selDay = selDay === d ? null : d; renderCal();
+  });
+
+  /* ---------- assinaturas ---------- */
+  var pendingSubDel = null, subDelTimer = null, stoastTimer = null;
+  function dateIn(ym, day) { var q = ym.split("-"); return ym + "-" + pad(Math.min(day, daysIn(+q[0], +q[1] - 1))); }
+  function nextCharge(b) {
+    var t = todayStr(), m = t.slice(0, 7); if (b.start > m) m = b.start;
+    var ds = dateIn(m, b.day); if (ds < t) ds = dateIn(shiftMonth(m, 1), b.day);
+    return ds;
+  }
+  function renderSubs() {
+    var act = state.subs.filter(function (b) { return !b.end; }), tot = act.reduce(function (a, b) { return a + b.amt; }, 0);
+    $("sSum").innerHTML = act.length
+      ? 'Total por mês: <strong>' + money(tot) + '</strong> <span class="muted">(' + plural(act.length, "assinatura ativa", "assinaturas ativas") + ")</span><br><span class=\"muted\">Por ano: " + money(tot * 12) + ".</span>"
+      : "Nenhuma assinatura ativa. Adicione Netflix, Spotify ou outros gastos que se repetem todo mês.";
+    var sorted = state.subs.slice().sort(function (a, b) { return (a.end ? 1 : 0) - (b.end ? 1 : 0) || b.amt - a.amt; });
+    $("subList").innerHTML = sorted.map(function (b) {
+      var conf = pendingSubDel === b.id, meta = b.end ? "Encerrada. Última cobrança em " + monthName(b.end) + "." : "Cobra todo dia " + b.day + ". Próxima cobrança: " + fmtDate(nextCharge(b)) + ".";
+      return '<li class="plan"><div class="top"><span class="name">' + esc(b.name) + ' <span class="chip">' + esc(b.cat) + "</span>" + (b.example ? ' <span class="chip ex">exemplo</span>' : "") + (b.end ? ' <span class="chip">encerrada</span>' : "") + '</span><span class="num">' + money(b.amt) + "/mês</span></div>" +
+        '<span class="meta">' + esc(meta) + "</span>" +
+        '<div class="acts">' + (b.end ? '<button type="button" class="small go" data-sreact="' + esc(b.id) + '">Reativar</button>' : '<button type="button" class="small" data-send="' + esc(b.id) + '">Encerrar</button>') +
+        '<button type="button" class="small' + (conf ? " confirm" : "") + '" data-sdel="' + esc(b.id) + '">' + (conf ? "Confirmar exclusão" : "Excluir") + "</button></div></li>";
+    }).join("");
+  }
+  function stoast(msg) {
+    $("stoast").textContent = msg;
+    clearTimeout(stoastTimer);
+    stoastTimer = setTimeout(function () { $("stoast").textContent = ""; }, 3500);
+  }
+  $("sf").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = $("sname").value.trim(), amt = parseMoney($("samt").value), day = parseInt($("sday").value, 10), cat = $("scat").value, start = $("sstart").value, err = $("serr");
+    if (!name) { err.textContent = "Digite o nome da assinatura, por exemplo Netflix."; $("sname").focus(); return; }
+    if (!amt) { err.textContent = "Digite o valor mensal, por exemplo 44,90."; $("samt").focus(); return; }
+    if (!(day >= 1 && day <= 31)) { err.textContent = "Informe o dia da cobrança, entre 1 e 31."; $("sday").focus(); return; }
+    if (!/^\d{4}-\d{2}$/.test(start)) { err.textContent = "Escolha o mês em que a assinatura começou."; $("sstart").focus(); return; }
+    err.textContent = "";
+    state.subs.push({ id: uid(), name: name, amt: amt, day: day, cat: cat, start: start, end: "" });
+    $("sname").value = ""; $("samt").value = ""; $("sday").value = "";
+    touch();
+    stoast("Assinatura adicionada.");
+  });
+  $("subList").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    var id = b.dataset.send || b.dataset.sreact || b.dataset.sdel; if (!id) return;
+    var sb = state.subs.filter(function (x) { return x.id === id; })[0]; if (!sb) return;
+    if (b.dataset.send) {
+      var t = todayStr(), ym = t.slice(0, 7);
+      sb.end = dateIn(ym, sb.day) <= t ? ym : shiftMonth(ym, -1);
+      touch();
+    } else if (b.dataset.sreact) { sb.end = ""; touch(); }
+    else if (pendingSubDel === id) {
+      clearTimeout(subDelTimer); pendingSubDel = null;
+      state.subs = state.subs.filter(function (x) { return x.id !== id; });
+      touch();
+    } else {
+      pendingSubDel = id; renderSubs();
+      clearTimeout(subDelTimer);
+      subDelTimer = setTimeout(function () { pendingSubDel = null; renderSubs(); }, 3500);
+    }
   });
 
   /* ---------- metas ---------- */
@@ -907,7 +1010,7 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     var plans = state.plans.filter(function (p) { return p.paid < p.n; }).map(function (p) {
       return { descricao: p.desc, valor_parcela: r2(p.amt), parcelas_restantes: p.n - p.paid, ultima_parcela: planDue(p, p.n - 1) };
     });
-    var d = { mes_exibido: viewYm, ultimos_meses: hist, categorias: cats, parcelas_em_aberto: plans, metas: goalsForAi() };
+    var d = { mes_exibido: viewYm, ultimos_meses: hist, categorias: cats, parcelas_em_aberto: plans, assinaturas_mensais: state.subs.filter(function (b) { return !b.end; }).map(function (b) { return { nome: b.name, valor: r2(b.amt), categoria: b.cat }; }), metas: goalsForAi() };
     if (state.tx.some(function (t) { return t.example; }) || state.plans.some(function (p) { return p.example; })) d.aviso = "Parte dos lançamentos são exemplos de demonstração.";
     return d;
   }
@@ -934,6 +1037,8 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
     });
     var pi = planItems(viewYm).reduce(function (a, it) { return a + it.amount; }, 0);
     if (t.inc && pi / t.inc > 0.3) tips.push("As parcelas deste mês somam " + money(pi) + ", " + Math.round(pi / t.inc * 100) + "% da sua receita. Evite novas compras parceladas até terminar algumas.");
+    var st = subItems(viewYm).reduce(function (a, it) { return a + it.amount; }, 0);
+    if (st && t.inc && st / t.inc > 0.08) tips.push("Suas assinaturas somam " + money(st) + " por mês (" + Math.round(st / t.inc * 100) + "% da receita). Cancele as que você quase não usa.");
     if (!tips.length) tips.push("Seu mês está equilibrado. Continue registrando os gastos para manter o controle.");
     return tips;
   }
@@ -989,6 +1094,9 @@ ul.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-directio
   /* ---------- início ---------- */
   $("date").value = todayStr();
   $("pdate").value = todayStr();
+  $("sstart").value = todayStr().slice(0, 7);
+  $("sday").value = String(new Date().getDate());
+  $("scat").innerHTML = CATS_EXP.map(function (c) { return "<option" + (c === "Lazer" ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("");
   $("pcat").innerHTML = CATS_EXP.map(function (c) { return "<option>" + esc(c) + "</option>"; }).join("");
   setType("exp");
   setSync("local");
