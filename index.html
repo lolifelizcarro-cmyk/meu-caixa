@@ -207,6 +207,10 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   .grid2.split { grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); }
 }
 .toast:empty { display: none; }
+.authscreen { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; align-items: center; justify-content: center; overflow-y: auto;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.authcard { width: 100%; max-width: 380px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 1px 2px rgba(20, 33, 43, 0.05); }
+#af { grid-template-columns: minmax(0, 1fr); }
 .authbtn { border: 1px solid var(--line); background: var(--surface); color: var(--accent); border-radius: 99px; padding: 7px 14px; font-size: 13px; font-weight: 600; }
 .authbtn:hover { background: var(--accent-soft); }
 @media (max-width: 640px) {
@@ -219,6 +223,26 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 @media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
 </style>
 
+<div class="authscreen" id="authScreen" hidden role="dialog" aria-modal="true" aria-labelledby="hAuth">
+  <div class="authcard">
+    <h1 id="hAuth">Meu Caixa</h1>
+    <p class="muted" style="margin:0">Entre para abrir seus dados em qualquer aparelho.</p>
+    <div class="seg wide" role="group" aria-label="Entrar ou criar conta">
+      <button type="button" id="aTabIn" aria-pressed="true">Entrar</button>
+      <button type="button" id="aTabUp" aria-pressed="false">Criar conta</button>
+    </div>
+    <form id="af" novalidate>
+      <div class="field full"><label for="auser">Nome de usuário</label><input id="auser" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20"></div>
+      <div class="field full"><label for="apass">Senha</label><input id="apass" type="password" autocomplete="current-password"></div>
+      <div class="field full" id="apassWrap2" hidden><label for="apass2">Repita a senha</label><input id="apass2" type="password" autocomplete="new-password"></div>
+      <p class="err full" id="aerr" role="alert"></p>
+      <button class="primary full" type="submit" id="asubmit">Entrar</button>
+    </form>
+    <p class="ainote">Não há como recuperar a senha. Anote-a em um lugar seguro.</p>
+    <button type="button" class="btn-link" id="aSkip">Usar sem conta, só neste navegador</button>
+  </div>
+</div>
+
 <script src="firebase-config.js"></script>
 </head>
 <body>
@@ -229,7 +253,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
         <h1>Meu Caixa</h1>
         <span class="sync" id="sync">Carregando…</span>
       </div>
-      <button type="button" class="authbtn" id="authBtn" hidden>Entrar com Google</button>
+      <button type="button" class="authbtn" id="authBtn" hidden>Entrar</button>
       <div class="monthnav" role="group" aria-label="Mês exibido">
         <button type="button" id="prev" aria-label="Mês anterior">‹</button>
         <span class="label" id="monthlabel" aria-live="polite"></span>
@@ -520,7 +544,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   var ref = null, busy = false, again = false, remoteTimer = null, syncMode = "local";
   function setSync(mode) {
     syncMode = mode;
-    var t = { local: "Salvo só neste navegador", synced: "Salvo na sua conta", error: "Não foi possível salvar na conta. Os dados ficam neste navegador.", wait: "Conectando à sua conta…", gin: "Entre com o Google para salvar na nuvem" };
+    var t = { local: "Salvo só neste navegador", synced: "Salvo na sua conta", error: "Não foi possível salvar na conta. Os dados ficam neste navegador.", wait: "Conectando à sua conta…", gin: "Entre para salvar na nuvem" };
     $("sync").textContent = t[mode] || "";
   }
   function scheduleRemote() {
@@ -1124,35 +1148,74 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
     }).then(function () { aiBusy = false; $("aiBtn").disabled = false; });
   });
 
-  /* ---------- conta Google (Firebase, só no site hospedado) ---------- */
+  /* ---------- conta com nome e senha (Firebase, só no site hospedado) ---------- */
   function loadScript(src) {
     return new Promise(function (res, rej) {
       var el = document.createElement("script"); el.src = src; el.onload = res; el.onerror = function () { rej(new Error("load")); };
       document.head.appendChild(el);
     });
   }
+  var DOMAIN = "@meucaixa.app";
+  function userSlug(n) { n = String(n || "").trim().toLowerCase(); return /^[a-z0-9._-]{3,20}$/.test(n) ? n : null; }
+  function authMsg(e) {
+    var c = e && e.code;
+    if (c === "auth/invalid-credential" || c === "auth/wrong-password" || c === "auth/user-not-found" || c === "auth/invalid-login-credentials") return "Nome ou senha incorretos.";
+    if (c === "auth/email-already-in-use") return "Esse nome já está em uso. Escolha outro.";
+    if (c === "auth/weak-password") return "A senha precisa ter pelo menos 6 caracteres.";
+    if (c === "auth/operation-not-allowed") return "O login por e-mail e senha não está ativado no Firebase. Veja o passo 2 do guia.";
+    if (c === "auth/network-request-failed") return "Sem conexão. Tente de novo.";
+    if (c === "auth/too-many-requests") return "Muitas tentativas. Espere um pouco e tente de novo.";
+    return "Não foi possível entrar agora. Tente de novo.";
+  }
   function connectFirebase() {
-    var cfg = window.MEU_CAIXA_FIREBASE, base = "https://www.gstatic.com/firebasejs/10.12.2/", btn = $("authBtn");
-    btn.hidden = false; setSync("gin");
+    var cfg = window.MEU_CAIXA_FIREBASE, base = "https://www.gstatic.com/firebasejs/10.12.2/", btn = $("authBtn"), mode = "in", skipped = false, busyAuth = false;
+    btn.hidden = false; setSync("gin"); $("authScreen").hidden = false;
+    function setMode(m) {
+      mode = m;
+      $("aTabIn").setAttribute("aria-pressed", m === "in"); $("aTabUp").setAttribute("aria-pressed", m === "up");
+      $("apassWrap2").hidden = m !== "up"; $("asubmit").textContent = m === "in" ? "Entrar" : "Criar conta";
+      $("apass").autocomplete = m === "in" ? "current-password" : "new-password"; $("aerr").textContent = "";
+    }
+    function showAuth(on) { $("authScreen").hidden = !on; if (on) { setTimeout(function () { try { $("auser").focus(); } catch (e) {} }, 50); } }
+    $("aTabIn").addEventListener("click", function () { setMode("in"); });
+    $("aTabUp").addEventListener("click", function () { setMode("up"); });
     loadScript(base + "firebase-app-compat.js").then(function () { return loadScript(base + "firebase-auth-compat.js"); })
       .then(function () { return loadScript(base + "firebase-firestore-compat.js"); }).then(function () {
         firebase.initializeApp(cfg);
         var auth = firebase.auth(), fs = firebase.firestore(), unsub = null;
+        $("aSkip").addEventListener("click", function () { skipped = true; showAuth(false); setSync("gin"); btn.textContent = "Entrar"; });
         btn.addEventListener("click", function () {
-          if (auth.currentUser) { auth.signOut(); return; }
-          var prov = new firebase.auth.GoogleAuthProvider();
-          auth.signInWithPopup(prov).catch(function (e) {
-            var code = e && e.code;
-            if (code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment") auth.signInWithRedirect(prov);
-            else if (code === "auth/unauthorized-domain") $("sync").textContent = "Este endereço não está autorizado no Firebase. Adicione-o em Authentication, Domínios autorizados.";
-            else if (code !== "auth/popup-closed-by-user" && code !== "auth/cancelled-popup-request") $("sync").textContent = "Não foi possível entrar com o Google. Tente de novo.";
-          });
+          if (auth.currentUser) { skipped = false; auth.signOut(); } else { skipped = false; showAuth(true); }
+        });
+        $("af").addEventListener("submit", function (e) {
+          e.preventDefault();
+          if (busyAuth) return;
+          var name = userSlug($("auser").value), pass = $("apass").value, err = $("aerr");
+          if (!name) { err.textContent = "Use de 3 a 20 letras, números, ponto, hífen ou sublinhado, sem espaços."; $("auser").focus(); return; }
+          if (!pass) { err.textContent = "Digite a senha."; $("apass").focus(); return; }
+          if (mode === "up") {
+            if (pass.length < 6) { err.textContent = "A senha precisa ter pelo menos 6 caracteres."; $("apass").focus(); return; }
+            if (pass !== $("apass2").value) { err.textContent = "As senhas não são iguais."; $("apass2").focus(); return; }
+          }
+          err.textContent = ""; busyAuth = true; $("asubmit").disabled = true;
+          var p = mode === "up" ? auth.createUserWithEmailAndPassword(name + DOMAIN, pass) : auth.signInWithEmailAndPassword(name + DOMAIN, pass);
+          p.then(function () { $("apass").value = ""; $("apass2").value = ""; }, function (e2) { err.textContent = authMsg(e2); })
+            .then(function () { busyAuth = false; $("asubmit").disabled = false; });
         });
         auth.onAuthStateChanged(function (user) {
+          var wasIn = !!ref;
           if (unsub) { unsub(); unsub = null; }
           ref = null; clearTimeout(remoteTimer);
-          if (!user) { btn.textContent = "Entrar com Google"; btn.title = ""; setSync("gin"); return; }
-          btn.textContent = "Sair"; btn.title = user.email || ""; setSync("wait");
+          if (!user) {
+            if (wasIn) { try { localStorage.removeItem(LS); } catch (e) {} state = normalize(seed()); saveLocal(); selDay = null; render(); }
+            btn.textContent = "Entrar"; btn.title = ""; setSync("gin");
+            setMode("in"); $("auser").value = ""; $("apass").value = ""; $("apass2").value = "";
+            if (!skipped) showAuth(true);
+            return;
+          }
+          showAuth(false);
+          var nm = (user.email || "").split("@")[0];
+          btn.textContent = "Sair (" + nm + ")"; btn.title = "Conectado como " + nm; setSync("wait");
           ref = fs.collection("users").doc(user.uid);
           unsub = ref.onSnapshot(function (snap) {
             if (snap.metadata.hasPendingWrites) return;
@@ -1164,7 +1227,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
             if (!snap.metadata.fromCache && syncMode !== "error") setSync("synced");
           }, function () { setSync("error"); });
         });
-      }).catch(function () { btn.hidden = true; setSync("local"); });
+      }).catch(function () { btn.hidden = true; showAuth(false); setSync("local"); });
   }
 
   /* ---------- conta (db) ---------- */
