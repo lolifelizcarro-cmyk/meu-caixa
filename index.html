@@ -207,6 +207,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   .grid2.split { grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); }
 }
 .toast:empty { display: none; }
+.authbtn { border: 1px solid var(--line); background: var(--surface); color: var(--accent); border-radius: 99px; padding: 7px 14px; font-size: 13px; font-weight: 600; }
+.authbtn:hover { background: var(--accent-soft); }
 @media (max-width: 640px) {
   .summary { grid-template-columns: 1fr 1fr; }
   .tile.main { grid-column: 1 / -1; }
@@ -217,6 +219,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 @media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
 </style>
 
+<script src="firebase-config.js"></script>
 </head>
 <body>
 <div class="app">
@@ -226,6 +229,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
         <h1>Meu Caixa</h1>
         <span class="sync" id="sync">Carregando…</span>
       </div>
+      <button type="button" class="authbtn" id="authBtn" hidden>Entrar com Google</button>
       <div class="monthnav" role="group" aria-label="Mês exibido">
         <button type="button" id="prev" aria-label="Mês anterior">‹</button>
         <span class="label" id="monthlabel" aria-live="polite"></span>
@@ -516,7 +520,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   var ref = null, busy = false, again = false, remoteTimer = null, syncMode = "local";
   function setSync(mode) {
     syncMode = mode;
-    var t = { local: "Salvo só neste navegador", synced: "Salvo na sua conta", error: "Não foi possível salvar na conta. Os dados ficam neste navegador.", wait: "Conectando à sua conta…" };
+    var t = { local: "Salvo só neste navegador", synced: "Salvo na sua conta", error: "Não foi possível salvar na conta. Os dados ficam neste navegador.", wait: "Conectando à sua conta…", gin: "Entre com o Google para salvar na nuvem" };
     $("sync").textContent = t[mode] || "";
   }
   function scheduleRemote() {
@@ -1120,10 +1124,56 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
     }).then(function () { aiBusy = false; $("aiBtn").disabled = false; });
   });
 
+  /* ---------- conta Google (Firebase, só no site hospedado) ---------- */
+  function loadScript(src) {
+    return new Promise(function (res, rej) {
+      var el = document.createElement("script"); el.src = src; el.onload = res; el.onerror = function () { rej(new Error("load")); };
+      document.head.appendChild(el);
+    });
+  }
+  function connectFirebase() {
+    var cfg = window.MEU_CAIXA_FIREBASE, base = "https://www.gstatic.com/firebasejs/10.12.2/", btn = $("authBtn");
+    btn.hidden = false; setSync("gin");
+    loadScript(base + "firebase-app-compat.js").then(function () { return loadScript(base + "firebase-auth-compat.js"); })
+      .then(function () { return loadScript(base + "firebase-firestore-compat.js"); }).then(function () {
+        firebase.initializeApp(cfg);
+        var auth = firebase.auth(), fs = firebase.firestore(), unsub = null;
+        btn.addEventListener("click", function () {
+          if (auth.currentUser) { auth.signOut(); return; }
+          var prov = new firebase.auth.GoogleAuthProvider();
+          auth.signInWithPopup(prov).catch(function (e) {
+            var code = e && e.code;
+            if (code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment") auth.signInWithRedirect(prov);
+            else if (code === "auth/unauthorized-domain") $("sync").textContent = "Este endereço não está autorizado no Firebase. Adicione-o em Authentication, Domínios autorizados.";
+            else if (code !== "auth/popup-closed-by-user" && code !== "auth/cancelled-popup-request") $("sync").textContent = "Não foi possível entrar com o Google. Tente de novo.";
+          });
+        });
+        auth.onAuthStateChanged(function (user) {
+          if (unsub) { unsub(); unsub = null; }
+          ref = null; clearTimeout(remoteTimer);
+          if (!user) { btn.textContent = "Entrar com Google"; btn.title = ""; setSync("gin"); return; }
+          btn.textContent = "Sair"; btn.title = user.email || ""; setSync("wait");
+          ref = fs.collection("users").doc(user.uid);
+          unsub = ref.onSnapshot(function (snap) {
+            if (snap.metadata.hasPendingWrites) return;
+            var d = snap.exists ? snap.data() : null, remote = d && d.state ? normalize(d.state) : null;
+            if (remote) {
+              if (remote.updatedAt > (state.updatedAt || 0)) { state = remote; saveLocal(); render(); }
+              else if (remote.updatedAt < (state.updatedAt || 0) && !snap.metadata.fromCache) scheduleRemote();
+            } else if (!snap.metadata.fromCache && state.updatedAt) scheduleRemote();
+            if (!snap.metadata.fromCache && syncMode !== "error") setSync("synced");
+          }, function () { setSync("error"); });
+        });
+      }).catch(function () { btn.hidden = true; setSync("local"); });
+  }
+
   /* ---------- conta (db) ---------- */
   function connect() {
     var c = window.claude;
-    if (!c || !c.use) { setSync("local"); return; }
+    if (!c || !c.use) {
+      if (window.MEU_CAIXA_FIREBASE && window.MEU_CAIXA_FIREBASE.apiKey) connectFirebase(); else setSync("local");
+      return;
+    }
     setSync("wait");
     Promise.all([c.use("db"), c.use("user")]).then(function (r) {
       var dbn = r[0], user = r[1];
